@@ -217,6 +217,40 @@ a:hover {
   outline-offset: 2px;
 }
 
+/* Segmented filter toggle: quick-pick a registry pair without scrolling. */
+.ck-toggle {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--color-muted);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 150ms var(--ck-ease-standard), color 150ms var(--ck-ease-standard);
+}
+.ck-toggle:hover {
+  background: var(--color-well);
+  color: var(--color-ink);
+}
+.ck-toggle:focus-visible {
+  outline: var(--ck-focus-ring);
+  outline-offset: 2px;
+}
+.ck-toggle[aria-pressed="true"] {
+  background: var(--color-ink);
+  color: var(--color-paper-bright);
+}
+.ck-toggle[aria-pressed="true"]:hover {
+  background: var(--color-ink-soft);
+  color: var(--color-paper-bright);
+}
+
 /* Input well. */
 .ck-field-input {
   width: 100%;

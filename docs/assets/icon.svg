@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="cloakly">
+  <defs>
+    <linearGradient id="ckBronze" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#A5641A" />
+      <stop offset="0.55" stop-color="#9A5B13" />
+      <stop offset="1" stop-color="#7A470E" />
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="7" fill="url(#ckBronze)" />
+  <path
+    d="M11.2 14.5V11.6a4.8 4.8 0 0 1 9.6 0v2.9"
+    fill="none"
+    stroke="#F7F5EF"
+    stroke-width="2.4"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <rect x="8" y="14" width="16" height="11.5" rx="2.6" fill="#F7F5EF" />
+  <circle cx="16" cy="19" r="1.6" fill="#9A5B13" />
+  <rect x="15.25" y="19" width="1.5" height="3.4" rx="0.75" fill="#9A5B13" />
+</svg>

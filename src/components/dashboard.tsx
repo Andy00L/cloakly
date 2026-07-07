@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import { useAccount, useSwitchChain } from "wagmi";
 import { APP_CHAIN_ID } from "@/lib/chain";
 import { useTokenPairs } from "@/lib/registry/use-token-pairs";
@@ -22,12 +22,36 @@ const GRID_STYLE: CSSProperties = {
 const SKELETON_COUNT = 4;
 
 // The main view: the warm paper field, the sticky header, wallet-state gating, the
-// onchain registry grid (with loading, empty, and error states), and the decrypt panel.
+// onchain registry grid (with a quick-pick filter and loading, empty, and error states),
+// and the decrypt panel.
 export function Dashboard() {
   const { isConnected, chainId } = useAccount();
   const { pairs, isLoading, isFetching, error, refetch } = useTokenPairs();
   const { switchChain, isPending: isSwitching } = useSwitchChain();
   const wrongNetwork = isConnected && chainId !== APP_CHAIN_ID;
+
+  // Quick-pick filter: choose a confidential symbol to show just that pair without
+  // scrolling. Null means "All". Symbols are de-duplicated (two tokens can share one).
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
+  const chipSymbols = useMemo(() => {
+    const seen = new Set<string>();
+    const symbols: string[] = [];
+    for (const pair of pairs) {
+      if (!seen.has(pair.confidentialSymbol)) {
+        seen.add(pair.confidentialSymbol);
+        symbols.push(pair.confidentialSymbol);
+      }
+    }
+    return symbols;
+  }, [pairs]);
+  // Ignore a stale selection if the registry no longer contains that symbol.
+  const effectiveSymbol =
+    selectedSymbol && chipSymbols.includes(selectedSymbol) ? selectedSymbol : null;
+  const visiblePairs = effectiveSymbol
+    ? pairs.filter((pair) => pair.confidentialSymbol === effectiveSymbol)
+    : pairs;
+
+  const showGrid = !isLoading && !error && pairs.length > 0;
 
   return (
     <div className="ck-field flex min-h-screen flex-col">
@@ -68,6 +92,14 @@ export function Dashboard() {
                 </button>
               </div>
 
+              {showGrid ? (
+                <PairFilter
+                  symbols={chipSymbols}
+                  selected={effectiveSymbol}
+                  onSelect={setSelectedSymbol}
+                />
+              ) : null}
+
               <div className="mt-5">
                 {isLoading ? (
                   <div style={GRID_STYLE}>
@@ -80,8 +112,8 @@ export function Dashboard() {
                 ) : pairs.length === 0 ? (
                   <EmptyState />
                 ) : (
-                  <div style={GRID_STYLE}>
-                    {pairs.map((pair, position) => (
+                  <div style={GRID_STYLE} key={effectiveSymbol ?? "all"}>
+                    {visiblePairs.map((pair, position) => (
                       <TokenPairCard key={pair.confidential} pair={pair} index={position} />
                     ))}
                   </div>
@@ -95,6 +127,40 @@ export function Dashboard() {
 
         <Footer />
       </main>
+    </div>
+  );
+}
+
+// The segmented quick-pick row: "All" plus one toggle per confidential symbol.
+function PairFilter({
+  symbols,
+  selected,
+  onSelect,
+}: {
+  symbols: string[];
+  selected: string | null;
+  onSelect: (symbol: string | null) => void;
+}) {
+  return (
+    <div
+      className="mt-4 flex flex-wrap items-center gap-2"
+      role="group"
+      aria-label="Jump to a registry pair"
+    >
+      <button type="button" className="ck-toggle" aria-pressed={selected === null} onClick={() => onSelect(null)}>
+        All
+      </button>
+      {symbols.map((symbol) => (
+        <button
+          key={symbol}
+          type="button"
+          className="ck-toggle"
+          aria-pressed={selected === symbol}
+          onClick={() => onSelect(symbol)}
+        >
+          {symbol}
+        </button>
+      ))}
     </div>
   );
 }
