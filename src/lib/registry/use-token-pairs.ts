@@ -15,6 +15,8 @@ import type { TokenPair } from "@/lib/tokens/types";
 export interface UseTokenPairsResult {
   pairs: TokenPair[];
   isLoading: boolean;
+  // True while a read is in flight, including background refetches (drives the refresh spinner).
+  isFetching: boolean;
   error: Error | null;
   refetch: () => void;
 }
@@ -130,6 +132,7 @@ export function useTokenPairs(): UseTokenPairsResult {
   return {
     pairs,
     isLoading: pairsQuery.isLoading || metaQuery.isLoading,
+    isFetching: pairsQuery.isFetching || metaQuery.isFetching,
     error: pairsQuery.error ?? metaQuery.error ?? null,
     refetch: () => {
       void pairsQuery.refetch();

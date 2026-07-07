@@ -21,8 +21,11 @@ export function createWagmiConfig() {
         batch: true,
       }),
     },
-    // Config is instantiated in the browser; no server-side transport calls.
-    ssr: false,
+    // Next.js server-renders this client tree to HTML, so use wagmi's SSR-safe
+    // hydration: the first render is disconnected on both server and client, and any
+    // prior connection is restored after mount. Without this, a returning connected
+    // user hydrates mismatched on the wallet controls. sourceRef: wagmi SSR guide.
+    ssr: true,
   });
 }
 

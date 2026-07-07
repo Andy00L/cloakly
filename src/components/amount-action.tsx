@@ -1,24 +1,28 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { AlertTriangleIcon, Spinner } from "@/components/icons";
 
 interface AmountActionProps {
   title: string;
   buttonLabel: string;
+  // Token symbol shown as a suffix inside the input (e.g. USDC).
+  unit?: string;
   placeholder?: string;
   disabled?: boolean;
   busy?: boolean;
-  // Short label shown on the button and below while the action runs, e.g. "approving...".
+  // Short label shown on the button while the action runs, e.g. "approving...".
   statusLabel?: string | null;
   errorMessage?: string | null;
   onSubmit: (amount: string) => void | Promise<void>;
 }
 
-// Reusable amount-input + submit row used by the faucet, wrap, and unwrap actions.
-// Owns only the input text; all busy/status/error state is driven by the parent hook.
+// Amount-input + submit row used by the faucet, wrap, and unwrap actions. Owns only the
+// input text; all busy/status/error state is driven by the parent action hook.
 export function AmountAction({
   title,
   buttonLabel,
+  unit,
   placeholder = "0.0",
   disabled = false,
   busy = false,
@@ -34,33 +38,50 @@ export function AmountAction({
   }
 
   const isDisabled = disabled || busy;
+  const hasError = Boolean(errorMessage);
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-1.5">
-      <label className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-        {title}
-      </label>
-      <div className="flex gap-2">
-        <input
-          value={amount}
-          onChange={(event) => setAmount(event.target.value)}
-          inputMode="decimal"
-          placeholder={placeholder}
-          disabled={isDisabled}
-          className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-violet-500 focus:outline-none disabled:opacity-50"
-        />
+    <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+      <label className="ck-eyebrow">{title}</label>
+      <div className="flex items-center gap-2.5">
+        <div className="relative min-w-0 flex-1">
+          <input
+            value={amount}
+            onChange={(event) => setAmount(event.target.value)}
+            inputMode="decimal"
+            placeholder={placeholder}
+            disabled={isDisabled}
+            aria-label={title}
+            className="ck-field-input"
+            style={{
+              paddingRight: unit ? 56 : 13,
+              borderColor: hasError ? "var(--color-revoked)" : undefined,
+            }}
+          />
+          {unit ? (
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 font-mono text-xs text-faint"
+            >
+              {unit}
+            </span>
+          ) : null}
+        </div>
         <button
           type="submit"
           disabled={isDisabled || amount.trim() === ""}
-          className="shrink-0 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+          className="ck-btn"
+          style={{ minWidth: 120 }}
         >
-          {busy ? statusLabel ?? "Working..." : buttonLabel}
+          {busy ? <Spinner /> : null}
+          <span>{busy ? statusLabel ?? "Working..." : buttonLabel}</span>
         </button>
       </div>
-      {errorMessage ? (
-        <p className="text-xs text-red-400">{errorMessage}</p>
-      ) : busy && statusLabel ? (
-        <p className="text-xs text-violet-300">{statusLabel}</p>
+      {hasError ? (
+        <div className="flex items-center gap-1.5 pl-0.5 text-xs text-revoked">
+          <AlertTriangleIcon size={13} className="flex-none" />
+          <span>{errorMessage}</span>
+        </div>
       ) : null}
     </form>
   );

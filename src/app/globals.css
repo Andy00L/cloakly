@@ -1,19 +1,394 @@
 @import "tailwindcss";
 
-:root {
-  --background: #09090b;
-  --foreground: #e4e4e7;
+/*
+  cloakly design tokens: the warm "paper and bronze" system.
+  sourceRef: .uidesign/cloakly-design-sheet.md (canonical per-project token sheet).
+  The field is warm paper, never a flat white; one bronze accent; green and red are
+  reserved punctuation used once per card. Fraunces for display, Geist for UI, Geist
+  Mono for numbers and addresses.
+*/
+@theme {
+  /* Surfaces (the field is never flat white) */
+  --color-paper: #f4f1e9;
+  --color-paper-bright: #f7f5ef;
+  --color-card: #fbfaf5;
+  --color-well: #ede9de;
+
+  /* Hairlines */
+  --color-line: rgba(28, 25, 23, 0.08);
+  --color-line-strong: rgba(28, 25, 23, 0.16);
+
+  /* Ink scale */
+  --color-ink: #1c1917;
+  --color-ink-soft: #322d28;
+  --color-muted: #57534e;
+  --color-faint: #736e64;
+  --color-faint-2: #a8a197;
+
+  /* One accent: bronze */
+  --color-bronze: #9a5b13;
+  --color-bronze-deep: #7a470e;
+
+  /* Reserved punctuation: registered (green) and revoked / error (red) */
+  --color-registered: #25704f;
+  --color-revoked: #a63d32;
+
+  /* Type: Geist vars come from the geist package classes on <html>; Fraunces is self-hosted */
+  --font-sans: var(--font-geist-sans), "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
+  --font-serif: "Fraunces Variable", Georgia, serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/*
+  Depth, motion, and material constants kept in one place so no literal is repeated.
+  Shadows are ink-tinted (never pure black) and layered (ambient + key + contact); as
+  elevation rises the offset and blur grow while opacity falls.
+*/
+:root {
+  --ck-shadow-card: 0 1px 2px rgba(28, 25, 23, 0.05), 0 8px 24px -12px rgba(28, 25, 23, 0.1),
+    0 24px 48px -28px rgba(28, 25, 23, 0.08);
+  --ck-shadow-card-hover: 0 2px 4px rgba(28, 25, 23, 0.06), 0 16px 32px -14px rgba(28, 25, 23, 0.16),
+    0 32px 64px -30px rgba(28, 25, 23, 0.1);
+  --ck-shadow-btn: 0 1px 2px rgba(28, 25, 23, 0.12), 0 6px 16px -8px rgba(28, 25, 23, 0.3);
+  --ck-shadow-btn-hover: 0 2px 4px rgba(28, 25, 23, 0.14), 0 10px 22px -8px rgba(28, 25, 23, 0.36);
+  --ck-inset-well: inset 0 1px 2px rgba(28, 25, 23, 0.06);
+
+  /* Motion easing family (kept in sync with src/lib/motion.ts for stateful animations) */
+  --ck-ease-enter: cubic-bezier(0.16, 1, 0.3, 1); /* decelerate / reveal */
+  --ck-ease-standard: cubic-bezier(0.4, 0, 0.2, 1); /* on-screen */
+  --ck-focus-ring: 2px solid rgba(154, 91, 19, 0.7);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+a {
+  color: var(--color-bronze);
+}
+a:hover {
+  color: var(--color-bronze-deep);
+}
+
+/* The field: warm paper with a bronze radial glow at the top and a soft vignette. */
+.ck-field {
+  position: relative;
+  min-height: 100vh;
+  background:
+    radial-gradient(120% 75% at 50% -12%, rgba(154, 91, 19, 0.06), rgba(154, 91, 19, 0) 60%),
+    var(--color-paper);
+}
+.ck-vignette {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(130% 115% at 50% 42%, rgba(28, 25, 23, 0) 62%, rgba(28, 25, 23, 0.05) 100%);
+}
+/*
+  Animated film grain (the finishing pass). Kept below conscious notice at ~4.5% and
+  moved with transform only (GPU friendly), hopped in steps for a filmic "on twos" feel.
+*/
+.ck-grain {
+  position: fixed;
+  inset: -64px;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.045;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 128px 128px;
+  will-change: transform;
+  animation: ck-grain 1.5s steps(1, end) infinite;
+}
+
+/* Paper card: one material, reused. Interactive cards lift on hover. */
+.ck-card {
+  background: var(--color-card);
+  border: 1px solid var(--color-line);
+  border-radius: 18px;
+  box-shadow: var(--ck-shadow-card);
+}
+.ck-card--interactive {
+  transition: transform 200ms var(--ck-ease-standard), box-shadow 200ms var(--ck-ease-standard);
+}
+.ck-card--interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--ck-shadow-card-hover);
+}
+
+/* Primary control: the ink pill. */
+.ck-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: 9999px;
+  background: var(--color-ink);
+  color: var(--color-paper-bright);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: var(--ck-shadow-btn);
+  transition: transform 150ms var(--ck-ease-standard), background 150ms var(--ck-ease-standard),
+    box-shadow 150ms var(--ck-ease-standard), opacity 150ms var(--ck-ease-standard);
+}
+.ck-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  background: var(--color-ink-soft);
+  box-shadow: var(--ck-shadow-btn-hover);
+}
+.ck-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.ck-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.ck-btn:focus-visible {
+  outline: var(--ck-focus-ring);
+  outline-offset: 2px;
+}
+
+/* Quiet control: a hairline pill (refresh, retry). */
+.ck-btn-quiet {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 18px;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 150ms var(--ck-ease-standard), transform 150ms var(--ck-ease-standard);
+}
+.ck-btn-quiet:hover:not(:disabled) {
+  background: var(--color-well);
+  transform: translateY(-1px);
+}
+.ck-btn-quiet:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.ck-btn-quiet:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.ck-btn-quiet:focus-visible {
+  outline: var(--ck-focus-ring);
+  outline-offset: 2px;
+}
+
+/* Ghost control: no chrome until hover (the header Disconnect). */
+.ck-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--color-muted);
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 150ms var(--ck-ease-standard), color 150ms var(--ck-ease-standard);
+}
+.ck-btn-ghost:hover {
+  background: var(--color-well);
+  color: var(--color-ink);
+}
+.ck-btn-ghost:focus-visible {
+  outline: var(--ck-focus-ring);
+  outline-offset: 2px;
+}
+
+/* Input well. */
+.ck-field-input {
+  width: 100%;
+  box-sizing: border-box;
+  height: 44px;
+  padding: 0 13px;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 10px;
+  background: var(--color-well);
+  box-shadow: var(--ck-inset-well);
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-ink);
+  transition: border-color 150ms var(--ck-ease-standard), box-shadow 150ms var(--ck-ease-standard);
+}
+.ck-field-input::placeholder {
+  color: var(--color-faint);
+}
+.ck-field-input:focus-visible {
+  outline: var(--ck-focus-ring);
+  outline-offset: 2px;
+  border-color: rgba(154, 91, 19, 0.5);
+}
+.ck-field-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* The decrypt / re-seal control beneath the sealed balance chip. */
+.ck-seal-control {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 8px 10px;
+  margin: -6px -10px 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 150ms var(--ck-ease-standard);
+}
+.ck-seal-control:hover:not(:disabled) {
+  background: rgba(154, 91, 19, 0.08);
+}
+.ck-seal-control:disabled {
+  cursor: not-allowed;
+}
+.ck-seal-control:focus-visible {
+  outline: var(--ck-focus-ring);
+  outline-offset: 2px;
+}
+
+/* Mono eyebrow label. */
+.ck-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--color-faint);
+}
+
+/* Well chip base (address chips, the sealed balance chip). */
+.ck-well {
+  background: var(--color-well);
+  box-shadow: var(--ck-inset-well);
+}
+
+/* Keyframes: entrances, the two seal treatments, skeleton shimmer, spinner, grain. */
+@keyframes ck-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes ck-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes ck-skeleton-shimmer {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(220%);
+  }
+}
+@keyframes ck-seal-shimmer {
+  0% {
+    transform: translateX(-170%);
+  }
+  100% {
+    transform: translateX(330%);
+  }
+}
+@keyframes ck-reveal-sweep {
+  0% {
+    opacity: 0;
+    transform: translateX(-140%) skewX(-14deg);
+  }
+  35% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(230%) skewX(-14deg);
+  }
+}
+/* The single budgeted overshoot: the sealed chip pops on the break, then settles. */
+@keyframes ck-seal-pop {
+  0% {
+    transform: scale(1);
+  }
+  28% {
+    transform: scale(1.06);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes ck-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes ck-grain {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  16% {
+    transform: translate3d(-8px, 6px, 0);
+  }
+  33% {
+    transform: translate3d(6px, -10px, 0);
+  }
+  50% {
+    transform: translate3d(-6px, 8px, 0);
+  }
+  66% {
+    transform: translate3d(8px, 4px, 0);
+  }
+  83% {
+    transform: translate3d(-4px, -6px, 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* Reduced motion collapses every animation and transition to a near-instant crossfade. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
