@@ -3,7 +3,7 @@
 import { useState, type CSSProperties } from "react";
 import { erc20Abi } from "viem";
 import { useAccount, useReadContract } from "wagmi";
-import { APP_CHAIN_ID } from "@/lib/chain";
+import { APP_CHAIN_ID, REGISTRY_NETWORKS, type RegistryNetwork } from "@/lib/chain";
 import { useFaucet } from "@/lib/actions/use-faucet";
 import { useWrap, type WrapStep } from "@/lib/actions/use-wrap";
 import { useUnwrap, type UnwrapStep } from "@/lib/actions/use-unwrap";
@@ -11,16 +11,26 @@ import { useDecryptBalance } from "@/lib/actions/use-decrypt-balance";
 import { formatTokenAmount, shortenAddress } from "@/lib/format";
 import { AmountAction } from "@/components/amount-action";
 import { SealedReveal, type SealPhase } from "@/components/sealed-reveal";
-import { AlertTriangleIcon, ArrowUpRightIcon, Spinner } from "@/components/icons";
+import { AlertTriangleIcon, ArrowUpRightIcon, LockClosedIcon, Spinner } from "@/components/icons";
 import { CARD_STAGGER_MS, EASE_ENTER } from "@/lib/motion";
 import type { TokenPair } from "@/lib/tokens/types";
 
-const SEPOLIA_EXPLORER = "https://sepolia.etherscan.io/address/";
-
 // One registry pair: identity, both addresses, the public and confidential balances (the
 // latter as the sealed chip and its break-the-seal reveal), and the mint/wrap/unwrap
-// actions. The repeated hero unit of the dashboard.
-export function TokenPairCard({ pair, index = 0 }: { pair: TokenPair; index?: number }) {
+// actions. On a read-only network (Ethereum mainnet) it renders identity + metadata only.
+export function TokenPairCard({
+  pair,
+  index = 0,
+  network = "sepolia",
+}: {
+  pair: TokenPair;
+  index?: number;
+  network?: RegistryNetwork;
+}) {
+  const config = REGISTRY_NETWORKS[network];
+  const readOnly = !config.writable;
+  const explorerBase = config.explorerBase;
+
   const { address, isConnected, chainId } = useAccount();
   const onSepolia = isConnected && chainId === APP_CHAIN_ID;
 
@@ -30,7 +40,7 @@ export function TokenPairCard({ pair, index = 0 }: { pair: TokenPair; index?: nu
     functionName: "balanceOf",
     args: address ? [address] : undefined,
     chainId: APP_CHAIN_ID,
-    query: { enabled: Boolean(address) },
+    query: { enabled: Boolean(address) && !readOnly },
   });
 
   const faucet = useFaucet();
@@ -87,48 +97,55 @@ export function TokenPairCard({ pair, index = 0 }: { pair: TokenPair; index?: nu
       ? formatTokenAmount(underlyingBalance.data, pair.underlyingDecimals)
       : "-";
 
-  const registered = pair.isValid;
-  const pillColor = registered ? "var(--color-registered)" : "var(--color-revoked)";
-  const pillWash = registered ? "rgba(37,112,79,0.10)" : "rgba(166,61,50,0.10)";
-  const pillDotHalo = registered ? "rgba(37,112,79,0.14)" : "rgba(166,61,50,0.14)";
-
   const cardStyle: CSSProperties = {
     padding: 24,
     animation: `ck-card-enter 300ms ${EASE_ENTER} backwards`,
     animationDelay: `${index * CARD_STAGGER_MS}ms`,
   };
 
+  // Read-only browse (Ethereum mainnet): identity, addresses, and metadata, no actions.
+  if (readOnly) {
+    return (
+      <article className="ck-card ck-card--interactive" style={cardStyle}>
+        <PairIdentity pair={pair} />
+
+        <div className="mt-[18px] grid grid-cols-2 gap-2.5">
+          <AddressChip label="ERC-20" address={pair.underlying} explorerBase={explorerBase} networkLabel={config.label} />
+          <AddressChip label="ERC-7984" address={pair.confidential} explorerBase={explorerBase} networkLabel={config.label} />
+        </div>
+
+        <div className="mt-[18px] grid grid-cols-2 gap-4">
+          <div className="flex flex-col gap-1.5">
+            <span className="ck-eyebrow">ERC-20 decimals</span>
+            <span className="font-mono text-[15px] tabular-nums text-ink">{pair.underlyingDecimals}</span>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <span className="ck-eyebrow">ERC-7984 decimals</span>
+            <span className="font-mono text-[15px] tabular-nums text-ink">{pair.confidentialDecimals}</span>
+          </div>
+        </div>
+
+        <div className="mt-[22px] h-px bg-line" />
+        <div className="mt-4 flex items-start gap-2 text-[12.5px] leading-[1.5] text-faint">
+          <span className="mt-0.5 flex-none">
+            <LockClosedIcon size={13} className="text-bronze" />
+          </span>
+          <span>
+            Browsing {config.label} mainnet read-only. Switch to Sepolia to faucet, wrap, unwrap, and decrypt.
+          </span>
+        </div>
+      </article>
+    );
+  }
+
   return (
     <article className="ck-card ck-card--interactive" style={cardStyle}>
-      {/* Identity + registry status */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex min-w-0 flex-col gap-[5px]">
-          <div className="flex items-baseline gap-[9px] font-serif text-[26px] font-medium leading-[1.02] tracking-[-0.02em] text-ink">
-            <span>{pair.underlyingSymbol}</span>
-            <span aria-hidden="true" className="font-medium text-faint-2">
-              &#8594;
-            </span>
-            <span>{pair.confidentialSymbol}</span>
-          </div>
-          <div className="text-sm text-muted">{pair.name}</div>
-        </div>
-        <span
-          className="inline-flex flex-none items-center gap-1.5 whitespace-nowrap rounded-full py-[5px] pl-[9px] pr-[11px] text-xs font-medium leading-none"
-          style={{ background: pillWash, color: pillColor }}
-        >
-          <span
-            aria-hidden="true"
-            className="h-1.5 w-1.5 rounded-full"
-            style={{ background: pillColor, boxShadow: `0 0 0 3px ${pillDotHalo}` }}
-          />
-          {registered ? "registered" : "revoked"}
-        </span>
-      </div>
+      <PairIdentity pair={pair} />
 
-      {/* Both token addresses, linking Sepolia Etherscan */}
+      {/* Both token addresses, linking Etherscan */}
       <div className="mt-[18px] grid grid-cols-2 gap-2.5">
-        <AddressChip label="ERC-20" address={pair.underlying} />
-        <AddressChip label="ERC-7984" address={pair.confidential} />
+        <AddressChip label="ERC-20" address={pair.underlying} explorerBase={explorerBase} networkLabel={config.label} />
+        <AddressChip label="ERC-7984" address={pair.confidential} explorerBase={explorerBase} networkLabel={config.label} />
       </div>
 
       {/* Public balance (paper number) and confidential balance (sealed chip + reveal) */}
@@ -151,12 +168,7 @@ export function TokenPairCard({ pair, index = 0 }: { pair: TokenPair; index?: nu
               label={`${pair.confidentialSymbol} balance`}
             />
           </div>
-          <SealControl
-            phase={sealPhase}
-            disabled={!onSepolia}
-            onDecrypt={handleDecrypt}
-            onReseal={reseal}
-          />
+          <SealControl phase={sealPhase} disabled={!onSepolia} onDecrypt={handleDecrypt} onReseal={reseal} />
           {sealPhase === "sealed" && decrypt.error ? (
             <div className="flex items-center gap-1.5 text-xs text-revoked">
               <AlertTriangleIcon size={13} className="flex-none" />
@@ -210,6 +222,39 @@ export function TokenPairCard({ pair, index = 0 }: { pair: TokenPair; index?: nu
   );
 }
 
+// Identity header: symbol pair, coin name, and registered / revoked status pill.
+function PairIdentity({ pair }: { pair: TokenPair }) {
+  const registered = pair.isValid;
+  const pillColor = registered ? "var(--color-registered)" : "var(--color-revoked)";
+  const pillWash = registered ? "rgba(37,112,79,0.10)" : "rgba(166,61,50,0.10)";
+  const pillDotHalo = registered ? "rgba(37,112,79,0.14)" : "rgba(166,61,50,0.14)";
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div className="flex min-w-0 flex-col gap-[5px]">
+        <div className="flex items-baseline gap-[9px] font-serif text-[26px] font-medium leading-[1.02] tracking-[-0.02em] text-ink">
+          <span>{pair.underlyingSymbol}</span>
+          <span aria-hidden="true" className="font-medium text-faint-2">
+            &#8594;
+          </span>
+          <span>{pair.confidentialSymbol}</span>
+        </div>
+        <div className="text-sm text-muted">{pair.name}</div>
+      </div>
+      <span
+        className="inline-flex flex-none items-center gap-1.5 whitespace-nowrap rounded-full py-[5px] pl-[9px] pr-[11px] text-xs font-medium leading-none"
+        style={{ background: pillWash, color: pillColor }}
+      >
+        <span
+          aria-hidden="true"
+          className="h-1.5 w-1.5 rounded-full"
+          style={{ background: pillColor, boxShadow: `0 0 0 3px ${pillDotHalo}` }}
+        />
+        {registered ? "registered" : "revoked"}
+      </span>
+    </div>
+  );
+}
+
 // The decrypt / decrypting / re-seal control beneath the confidential balance chip.
 function SealControl({
   phase,
@@ -250,13 +295,23 @@ function SealControl({
   );
 }
 
-function AddressChip({ label, address }: { label: string; address: string }) {
+function AddressChip({
+  label,
+  address,
+  explorerBase,
+  networkLabel,
+}: {
+  label: string;
+  address: string;
+  explorerBase: string;
+  networkLabel: string;
+}) {
   return (
     <a
-      href={`${SEPOLIA_EXPLORER}${address}`}
+      href={`${explorerBase}/${address}`}
       target="_blank"
       rel="noopener noreferrer"
-      title={`View ${label} on Sepolia Etherscan`}
+      title={`View ${label} on ${networkLabel} Etherscan`}
       className="ck-well flex flex-col gap-1 rounded-lg px-[11px] py-[9px] no-underline transition-transform duration-150 hover:-translate-y-px"
     >
       <span className="ck-eyebrow">{label}</span>

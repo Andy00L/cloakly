@@ -1,30 +1,27 @@
 "use client";
 
-import { useAccount, useConnect, useDisconnect } from "wagmi";
+import { useState } from "react";
+import { useAccount, useDisconnect } from "wagmi";
 import { APP_CHAIN_ID } from "@/lib/chain";
 import { shortenAddress } from "@/lib/format";
+import { WalletModal } from "@/components/wallet-modal";
 
-// Wallet control for the header: connect an injected wallet, or show the connected
-// address with a disconnect action. The network dot is green on Sepolia and bronze off
-// it; switching networks is offered by the wrong-network banner, not here.
+// Wallet control for the header. Disconnected: opens the wallet picker (installed wallets
+// to connect + install suggestions). Connected: shows the address with a network dot
+// (green on Sepolia, bronze off it) and a disconnect action.
 export function ConnectButton() {
   const { address, isConnected, chainId } = useAccount();
-  const { connect, connectors, isPending: isConnecting } = useConnect();
   const { disconnect } = useDisconnect();
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   if (!isConnected) {
-    const injectedConnector = connectors[0];
     return (
-      <button
-        type="button"
-        className="ck-btn"
-        disabled={isConnecting || !injectedConnector}
-        onClick={() => {
-          if (injectedConnector) connect({ connector: injectedConnector });
-        }}
-      >
-        {isConnecting ? "Connecting..." : "Connect wallet"}
-      </button>
+      <>
+        <button type="button" className="ck-btn" onClick={() => setPickerOpen(true)}>
+          Connect wallet
+        </button>
+        <WalletModal open={pickerOpen} onClose={() => setPickerOpen(false)} />
+      </>
     );
   }
 

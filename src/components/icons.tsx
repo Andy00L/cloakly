@@ -79,6 +79,25 @@ export function LayersIcon({ size = 34, className, strokeWidth = 1.5 }: IconProp
   );
 }
 
+export function WalletIcon({ size = 18, className, strokeWidth = 2 }: IconProps) {
+  return (
+    <svg {...base(size, className)} strokeWidth={strokeWidth}>
+      <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
+      <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
+      <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
+    </svg>
+  );
+}
+
+export function CloseIcon({ size = 16, className, strokeWidth = 2 }: IconProps) {
+  return (
+    <svg {...base(size, className)} strokeWidth={strokeWidth}>
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </svg>
+  );
+}
+
 // A ring spinner for busy controls. "light" reads on the ink pill, "bronze" on the
 // paper-colored decrypt control. Spins via the ck-spin keyframe (collapsed under
 // reduced motion by the global rule in globals.css).

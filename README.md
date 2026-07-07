@@ -61,6 +61,12 @@ using the existing wrappers the path of least resistance.
   paste-an-address panel.
 - **Quick-pick.** A filter toggle above the grid jumps straight to any pair, so
   a wallet full of pairs never means scrolling.
+- **Browse Ethereum mainnet, read-only.** A network switch reads the official
+  mainnet Wrappers Registry (`0xeb5015fF021DB115aCe010f23F55C2591059bBA0`), so
+  both networks' pairs are visible; mainnet is browse-only, with no faucet or
+  transacting.
+- **Wallet picker.** Connecting lists every installed wallet via EIP-6963 and
+  suggests popular wallets to install when none is detected.
 
 ## 🧭 How it works
 
@@ -214,8 +220,10 @@ and never committed (`.env.local` is git-ignored).
   into the client.
 - **Injected wallets only.** MetaMask and compatible browser-extension wallets.
   WalletConnect was intentionally left out to avoid an external relay dependency.
-- **Sepolia only.** The requirements target Sepolia; the mainnet registry address
-  exists in the Zama docs but this app is scoped to the testnet.
+- **Sepolia is the writable network.** Faucet, wrap, unwrap, and decrypt run on
+  Sepolia. Ethereum mainnet is supported read-only (browse the registry and its
+  metadata); it has no faucet and no transacting, so no real funds are ever at
+  risk. Mainnet reads use a public endpoint unless `MAINNET_RPC_URL` is set.
 - **Unwrap reveals the unwrapped amount by design.** The OpenZeppelin
   `ERC7984ERC20Wrapper` finalizes an unwrap with the publicly decrypted burned
   amount, so the unwrapped quantity is public while every confidential balance

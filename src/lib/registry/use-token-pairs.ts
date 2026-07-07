@@ -3,8 +3,8 @@
 import { useMemo } from "react";
 import { erc20Abi } from "viem";
 import { useReadContract, useReadContracts } from "wagmi";
-import { APP_CHAIN_ID } from "@/lib/chain";
-import { WRAPPERS_REGISTRY_ADDRESS } from "@/lib/contracts/addresses";
+import { REGISTRY_NETWORKS, type RegistryNetwork } from "@/lib/chain";
+import { registryAddressFor } from "@/lib/contracts/addresses";
 import { WRAPPERS_REGISTRY_ABI } from "@/lib/contracts/registry-abi";
 import { CONFIDENTIAL_WRAPPER_ABI } from "@/lib/contracts/wrapper-abi";
 import { findCatalogEntry } from "@/lib/tokens/catalog";
@@ -22,56 +22,46 @@ export interface UseTokenPairsResult {
 }
 
 // Reads the confidential-token pairs from the onchain Wrappers Registry (the primary
-// source of truth), enriches each with verified catalog metadata, falls back to onchain
-// metadata for any pair not in the catalog, and merges in locally declared pairs.
-export function useTokenPairs(): UseTokenPairsResult {
+// source of truth) on the given network. On Sepolia it enriches each pair with verified
+// catalog metadata and merges locally declared pairs; on mainnet every pair's metadata is
+// read onchain (the catalog and local pairs are Sepolia-specific).
+export function useTokenPairs(network: RegistryNetwork = "sepolia"): UseTokenPairsResult {
+  const chainId = REGISTRY_NETWORKS[network].chainId;
+  const registryAddress = registryAddressFor(network);
+  const useCatalog = network === "sepolia";
+
   const pairsQuery = useReadContract({
-    address: WRAPPERS_REGISTRY_ADDRESS,
+    address: registryAddress,
     abi: WRAPPERS_REGISTRY_ABI,
     functionName: "getTokenConfidentialTokenPairs",
-    chainId: APP_CHAIN_ID,
+    chainId,
   });
 
   const pairsData = pairsQuery.data;
 
-  // Pairs the local catalog does not describe: fetch their metadata onchain.
+  // Pairs the catalog does not describe (all of them off Sepolia): fetch metadata onchain.
   const uncatalogued = useMemo(
     () =>
       (pairsData ?? []).filter(
-        (pair) => !findCatalogEntry(pair.confidentialTokenAddress),
+        (pair) => !(useCatalog && findCatalogEntry(pair.confidentialTokenAddress)),
       ),
-    [pairsData],
+    [pairsData, useCatalog],
   );
 
   const metaContracts = useMemo(
     () =>
       uncatalogued.flatMap((pair) => [
-        {
-          address: pair.tokenAddress,
-          abi: erc20Abi,
-          functionName: "symbol",
-          chainId: APP_CHAIN_ID,
-        },
-        {
-          address: pair.tokenAddress,
-          abi: erc20Abi,
-          functionName: "name",
-          chainId: APP_CHAIN_ID,
-        },
-        {
-          address: pair.tokenAddress,
-          abi: erc20Abi,
-          functionName: "decimals",
-          chainId: APP_CHAIN_ID,
-        },
+        { address: pair.tokenAddress, abi: erc20Abi, functionName: "symbol", chainId },
+        { address: pair.tokenAddress, abi: erc20Abi, functionName: "name", chainId },
+        { address: pair.tokenAddress, abi: erc20Abi, functionName: "decimals", chainId },
         {
           address: pair.confidentialTokenAddress,
           abi: CONFIDENTIAL_WRAPPER_ABI,
           functionName: "decimals",
-          chainId: APP_CHAIN_ID,
+          chainId,
         },
       ] as const),
-    [uncatalogued],
+    [uncatalogued, chainId],
   );
 
   const metaQuery = useReadContracts({
@@ -81,7 +71,7 @@ export function useTokenPairs(): UseTokenPairsResult {
 
   const pairs = useMemo<TokenPair[]>(() => {
     const registryPairs = (pairsData ?? []).map<TokenPair>((pair) => {
-      const entry = findCatalogEntry(pair.confidentialTokenAddress);
+      const entry = useCatalog ? findCatalogEntry(pair.confidentialTokenAddress) : undefined;
       if (entry) {
         return {
           underlying: pair.tokenAddress,
@@ -121,13 +111,13 @@ export function useTokenPairs(): UseTokenPairsResult {
       };
     });
 
-    // Layer local (dev-only) pairs on top, skipping any already present onchain.
+    // Layer local (Sepolia dev-only) pairs on top, skipping any already present onchain.
     const seen = new Set(registryPairs.map((pair) => pair.confidential.toLowerCase()));
-    const localExtra = LOCAL_PAIRS.filter(
-      (pair) => !seen.has(pair.confidential.toLowerCase()),
-    );
+    const localExtra = useCatalog
+      ? LOCAL_PAIRS.filter((pair) => !seen.has(pair.confidential.toLowerCase()))
+      : [];
     return [...registryPairs, ...localExtra];
-  }, [pairsData, uncatalogued, metaQuery.data]);
+  }, [pairsData, uncatalogued, metaQuery.data, useCatalog]);
 
   return {
     pairs,

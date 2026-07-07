@@ -2,7 +2,7 @@
 
 import { useMemo, useState, type CSSProperties } from "react";
 import { useAccount, useSwitchChain } from "wagmi";
-import { APP_CHAIN_ID } from "@/lib/chain";
+import { APP_CHAIN_ID, REGISTRY_NETWORKS, type RegistryNetwork } from "@/lib/chain";
 import { useTokenPairs } from "@/lib/registry/use-token-pairs";
 import { SiteHeader } from "@/components/site-header";
 import { ConnectButton } from "@/components/connect-button";
@@ -21,14 +21,17 @@ const GRID_STYLE: CSSProperties = {
 
 const SKELETON_COUNT = 4;
 
-// The main view: the warm paper field, the sticky header, wallet-state gating, the
-// onchain registry grid (with a quick-pick filter and loading, empty, and error states),
-// and the decrypt panel.
+// The main view: the warm paper field, the sticky header, wallet-state gating, a
+// Sepolia / Ethereum registry switch, the registry grid (quick-pick filter + loading,
+// empty, and error states), and the decrypt panel (Sepolia only).
 export function Dashboard() {
   const { isConnected, chainId } = useAccount();
-  const { pairs, isLoading, isFetching, error, refetch } = useTokenPairs();
+  const [network, setNetwork] = useState<RegistryNetwork>("sepolia");
+  const { pairs, isLoading, isFetching, error, refetch } = useTokenPairs(network);
   const { switchChain, isPending: isSwitching } = useSwitchChain();
   const wrongNetwork = isConnected && chainId !== APP_CHAIN_ID;
+  const isMainnet = network === "mainnet";
+  const networkLabel = isMainnet ? "Ethereum mainnet" : "Ethereum Sepolia";
 
   // Quick-pick filter: choose a confidential symbol to show just that pair without
   // scrolling. Null means "All". Symbols are de-duplicated (two tokens can share one).
@@ -44,7 +47,6 @@ export function Dashboard() {
     }
     return symbols;
   }, [pairs]);
-  // Ignore a stale selection if the registry no longer contains that symbol.
   const effectiveSymbol =
     selectedSymbol && chipSymbols.includes(selectedSymbol) ? selectedSymbol : null;
   const visiblePairs = effectiveSymbol
@@ -52,6 +54,11 @@ export function Dashboard() {
     : pairs;
 
   const showGrid = !isLoading && !error && pairs.length > 0;
+
+  function changeNetwork(next: RegistryNetwork) {
+    setNetwork(next);
+    setSelectedSymbol(null);
+  }
 
   return (
     <div className="ck-field flex min-h-screen flex-col">
@@ -62,14 +69,14 @@ export function Dashboard() {
 
       <main className="relative z-[1] mx-auto w-full max-w-[68rem] flex-1 px-5 pb-[132px] pt-[26px] sm:px-8">
         <p className="font-serif text-[19px] font-medium leading-[1.4] tracking-[-0.02em] text-muted">
-          Confidential ERC-7984 wrapper registry on Ethereum Sepolia
+          Confidential ERC-7984 wrapper registry on {networkLabel}
         </p>
 
         {!isConnected ? (
           <DisconnectedNotice />
         ) : (
           <div className="mt-[34px] flex flex-col gap-14">
-            {wrongNetwork ? (
+            {!isMainnet && wrongNetwork ? (
               <WrongNetworkBanner
                 switching={isSwitching}
                 onSwitch={() => switchChain({ chainId: APP_CHAIN_ID })}
@@ -77,27 +84,33 @@ export function Dashboard() {
             ) : null}
 
             <section>
-              <div className="flex items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="font-serif text-[26px] font-medium tracking-[-0.02em] text-ink">
                   Registry pairs
                 </h2>
-                <button type="button" className="ck-btn-quiet" onClick={refetch}>
-                  <span
-                    className="inline-flex"
-                    style={{ animation: isFetching ? "ck-spin 0.8s linear infinite" : "none" }}
-                  >
-                    <RefreshIcon size={15} />
-                  </span>
-                  <span>Refresh</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <NetworkToggle value={network} onChange={changeNetwork} />
+                  <button type="button" className="ck-btn-quiet" onClick={refetch}>
+                    <span
+                      className="inline-flex"
+                      style={{ animation: isFetching ? "ck-spin 0.8s linear infinite" : "none" }}
+                    >
+                      <RefreshIcon size={15} />
+                    </span>
+                    <span>Refresh</span>
+                  </button>
+                </div>
               </div>
 
+              {isMainnet ? (
+                <p className="mt-3 text-[13px] text-faint">
+                  Read-only: browse the official registry on Ethereum mainnet. Switch to Sepolia to
+                  faucet, wrap, unwrap, and decrypt.
+                </p>
+              ) : null}
+
               {showGrid ? (
-                <PairFilter
-                  symbols={chipSymbols}
-                  selected={effectiveSymbol}
-                  onSelect={setSelectedSymbol}
-                />
+                <PairFilter symbols={chipSymbols} selected={effectiveSymbol} onSelect={setSelectedSymbol} />
               ) : null}
 
               <div className="mt-5">
@@ -112,21 +125,47 @@ export function Dashboard() {
                 ) : pairs.length === 0 ? (
                   <EmptyState />
                 ) : (
-                  <div style={GRID_STYLE} key={effectiveSymbol ?? "all"}>
+                  <div style={GRID_STYLE} key={`${network}:${effectiveSymbol ?? "all"}`}>
                     {visiblePairs.map((pair, position) => (
-                      <TokenPairCard key={pair.confidential} pair={pair} index={position} />
+                      <TokenPairCard key={pair.confidential} pair={pair} index={position} network={network} />
                     ))}
                   </div>
                 )}
               </div>
             </section>
 
-            <DecryptPanel />
+            {isMainnet ? null : <DecryptPanel />}
           </div>
         )}
 
         <Footer />
       </main>
+    </div>
+  );
+}
+
+// Sepolia (live) / Ethereum (read-only) registry switch.
+function NetworkToggle({
+  value,
+  onChange,
+}: {
+  value: RegistryNetwork;
+  onChange: (network: RegistryNetwork) => void;
+}) {
+  const networks: RegistryNetwork[] = ["sepolia", "mainnet"];
+  return (
+    <div className="flex items-center gap-1" role="group" aria-label="Registry network">
+      {networks.map((network) => (
+        <button
+          key={network}
+          type="button"
+          className="ck-toggle"
+          aria-pressed={value === network}
+          onClick={() => onChange(network)}
+        >
+          {REGISTRY_NETWORKS[network].label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -142,11 +181,7 @@ function PairFilter({
   onSelect: (symbol: string | null) => void;
 }) {
   return (
-    <div
-      className="mt-4 flex flex-wrap items-center gap-2"
-      role="group"
-      aria-label="Jump to a registry pair"
-    >
+    <div className="mt-4 flex flex-wrap items-center gap-2" role="group" aria-label="Jump to a registry pair">
       <button type="button" className="ck-toggle" aria-pressed={selected === null} onClick={() => onSelect(null)}>
         All
       </button>

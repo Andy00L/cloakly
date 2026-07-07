@@ -1,15 +1,50 @@
-import { sepolia } from "viem/chains";
+import { mainnet, sepolia } from "viem/chains";
 
-// cloakly targets Ethereum Sepolia only. The Bounty Track requires that
-// shield / unshield / decrypt all work on Sepolia.
-// sourceRef: 02-bounty-track-wrapper-registry.md ("Support Sepolia").
+// The writable chain: all transacting (shield / unshield / decrypt / faucet) happens on
+// Ethereum Sepolia, as the Bounty Track requires ("Support Sepolia").
+// sourceRef: 02-bounty-track-wrapper-registry.md.
 export const APP_CHAIN = sepolia;
+export const APP_CHAIN_ID = sepolia.id; // 11155111
 
-// Numeric chain id, 11155111 for Sepolia. Kept as a named constant so UI code
-// can compare the connected chain without importing the whole chain object.
-export const APP_CHAIN_ID = sepolia.id;
+// Ethereum mainnet is supported for read-only registry browsing only (see below).
+export const MAINNET_CHAIN = mainnet;
+export const MAINNET_CHAIN_ID = mainnet.id; // 1
 
-// Same-origin path of the JSON-RPC proxy (route handler at src/app/api/rpc/route.ts).
-// The browser talks to this instead of Infura directly, so the RPC key that
-// SEPOLIA_RPC_URL carries stays server-side and never enters the client bundle.
-export const RPC_PROXY_PATH = "/api/rpc";
+// The two registry-browsing networks. Each rpcPath below points at the same-origin
+// /api/rpc proxy (route handler at src/app/api/rpc/route.ts) with a ?chain selector, so
+// Sepolia keeps its provider key server-side and the browser never calls a provider
+// directly. Sepolia is the live, writable network; Ethereum
+// mainnet is browse-only (read the official registry, no transacting), which lets the
+// app surface both networks' pairs without putting real funds at risk.
+export type RegistryNetwork = "sepolia" | "mainnet";
+
+export interface RegistryNetworkConfig {
+  network: RegistryNetwork;
+  chainId: number;
+  label: string;
+  // Whether wrap / unwrap / faucet / decrypt are available (true only for Sepolia).
+  writable: boolean;
+  // Address explorer base, no trailing slash.
+  explorerBase: string;
+  // Same-origin proxy path with the chain selector.
+  rpcPath: string;
+}
+
+export const REGISTRY_NETWORKS: Record<RegistryNetwork, RegistryNetworkConfig> = {
+  sepolia: {
+    network: "sepolia",
+    chainId: sepolia.id,
+    label: "Sepolia",
+    writable: true,
+    explorerBase: "https://sepolia.etherscan.io/address",
+    rpcPath: "/api/rpc?chain=sepolia",
+  },
+  mainnet: {
+    network: "mainnet",
+    chainId: mainnet.id,
+    label: "Ethereum",
+    writable: false,
+    explorerBase: "https://etherscan.io/address",
+    rpcPath: "/api/rpc?chain=mainnet",
+  },
+};

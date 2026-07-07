@@ -251,6 +251,38 @@ a:hover {
   color: var(--color-paper-bright);
 }
 
+/* Wallet-picker row (detected wallet or install link). */
+.ck-wallet-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-ink);
+  text-align: left;
+  text-decoration: none;
+  transition: background 150ms var(--ck-ease-standard);
+}
+.ck-wallet-option:hover:not(:disabled) {
+  background: var(--color-well);
+}
+.ck-wallet-option:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+.ck-wallet-option:focus-visible {
+  outline: var(--ck-focus-ring);
+  outline-offset: 2px;
+}
+
 /* Input well. */
 .ck-field-input {
   width: 100%;
@@ -384,6 +416,24 @@ a:hover {
   }
   100% {
     transform: scale(1);
+  }
+}
+@keyframes ck-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes ck-modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }
 @keyframes ck-spin {
